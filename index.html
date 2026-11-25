@@ -338,11 +338,18 @@ footer p{font-size:11px;color:rgba(255,255,255,.3);line-height:1.9;}
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
+html,body{overflow-x:hidden;}
 @media(max-width:860px){
   .sups,.steps,.obj-grid{grid-template-columns:1fr 1fr;}
   .tests-grid,.groups-grid,.mods-grid,.cg4,.cmp{grid-template-columns:1fr;}
   .mod-sidebar{display:none;}
   .chat-win{width:calc(100vw - 32px);left:16px;}
+  .topbar{padding:0 10px;gap:8px;}
+  .tb-nav{flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .tb-nav::-webkit-scrollbar{display:none;}
+  .tb-btn{padding:5px 10px;font-size:11px;white-space:nowrap;flex-shrink:0;}
+  #tb-status{display:none;}
+  .tb-badge{flex-shrink:0;white-space:nowrap;}
 }
 @media(max-width:480px){
   .sups,.steps,.obj-grid,.gp-info{grid-template-columns:1fr;}
@@ -362,7 +369,7 @@ footer p{font-size:11px;color:rgba(255,255,255,.3);line-height:1.9;}
     <div class="gate-icon">🔐</div>
     <div class="gate-title" id="gate-title">دخول المجموعة</div>
     <div class="gate-sub" id="gate-sub">أدخل كود المجموعة الذي أرسله لك المشرف</div>
-    <input class="gate-inp" id="gate-inp" type="text" placeholder="SLEIPS-M1"
+    <input class="gate-inp" id="gate-inp" type="text" placeholder="كود المجموعة"
       onkeydown="if(event.key==='Enter')doCode()"
       oninput="this.value=this.value.toUpperCase()">
     <div class="gate-err" id="gate-err"></div>
@@ -384,12 +391,20 @@ footer p{font-size:11px;color:rgba(255,255,255,.3);line-height:1.9;}
 <div class="chat-win" id="chat-win">
   <div class="cw-hd" id="cw-hd">
     <div class="cw-av" id="cw-av">🤖</div>
-    <div><div class="cw-nm" id="cw-nm">المساعد الذكي</div><div class="cw-sb" id="cw-sb">يعمل بـ Gemini 1.5 Flash</div></div>
+    <div><div class="cw-nm" id="cw-nm">المساعد الذكي</div><div class="cw-sb" id="cw-sb">مساعد ذكي</div></div>
     <div class="cw-online">متاح</div>
     <button class="cw-close" onclick="closeChat()">✕</button>
   </div>
   <div class="cw-msgs" id="cw-msgs"></div>
   <div class="cw-ft">
+    <div id="cw-auth" style="display:none;padding:10px 12px;border-bottom:1px solid var(--gray200);background:#F8FAFC;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--navy);">🔑 أعد إدخال كود مجموعتك لاستخدام المساعد</div>
+      <div style="display:flex;gap:6px;">
+        <input id="cw-auth-inp" type="text" placeholder="كود المجموعة" style="flex:1;padding:8px 10px;border:1.5px solid var(--gray200);border-radius:9px;font-size:12px;font-family:monospace;letter-spacing:2px;outline:none;text-transform:uppercase;direction:ltr;text-align:center;">
+        <button onclick="cwAuth()" style="padding:8px 14px;background:var(--gc,#0E7490);border:none;border-radius:9px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Cairo';">تحقق</button>
+      </div>
+      <div id="cw-auth-err" style="display:none;font-size:11px;color:#DC2626;margin-top:6px;"></div>
+    </div>
     <div class="qps" id="qps"></div>
     <div class="cw-row">
       <input class="cw-input" id="cw-input" type="text" placeholder="اسأل عن أي مفهوم..."
@@ -757,7 +772,6 @@ const MODULE_UNLOCKED = {1:true, 2:false, 3:false, 4:false};
 // كود المشرف لفتح/غلق الموديولات
 const SUPERVISOR_CODE = 'SLEIPS-SUPER-2025';
 // Clear any invalid cached API key on load
-(function(){ var k=localStorage.getItem('sleips_groq_key'); if(k&&(!k.startsWith('gsk_')||k.length<20)){localStorage.removeItem('sleips_groq_key');} })();
 
 const DRIVE = {
   TL:'https://drive.google.com/drive/folders/1ELwLnGAMtGw3MkZ571gkC9TPoBr_JW6C',
@@ -766,12 +780,7 @@ const DRIVE = {
   PH:'https://drive.google.com/drive/folders/1Y77kVLm4FRVNKR6YAAOcFVX-dVcURJxH',
 };
 
-const SYS = {
-  teacher_low:`أنت وكيل ذكي يمثل المعلم في SLEIPS. ابدأ بـ "أستاذك هنا 👨‍🏫". سعة منخفضة — لغة مبسّطة. عربية، لا تتجاوز 120 كلمة.`,
-  teacher_high:`أنت وكيل ذكي يمثل المعلم في SLEIPS. ابدأ بـ "أستاذك هنا 👨‍🏫". سعة مرتفعة — تقني ومعمّق. عربية، لا تتجاوز 150 كلمة.`,
-  peer_low:`أنت وكيل ذكي يمثل زميل في SLEIPS. ابدأ بـ "زميلك هنا 👥". سعة منخفضة — بسيط وودود. عربية، لا تتجاوز 100 كلمة.`,
-  peer_high:`أنت وكيل ذكي يمثل زميل في SLEIPS. ابدأ بـ "زميلك هنا 👥". سعة مرتفعة — ناقش بعمق. عربية، لا تتجاوز 130 كلمة.`,
-};
+
 
 const MODULES_DATA = {
   1:{
@@ -994,6 +1003,7 @@ function doCode() {
   err.style.display = 'none';
   sessionStorage.setItem('sleips_' + resolved, 'ok');
   sessionStorage.setItem('sleips_auth_group', resolved);
+  sessionStorage.setItem('sleips_group_code', val);
   document.getElementById('gate-ov').classList.remove('open');
   _pending = null;
   enterGroup(resolved);
@@ -1286,14 +1296,46 @@ function cwQuick(text) {
   cwSend();
 }
 
-// ═══ OPENAI API KEY ═══════════════════════════════
-// ضع مفتاح OpenAI هنا مرة واحدة — الطلاب لن يحتاجوا إدخاله
-// احصل على المفتاح من: https://platform.openai.com/api-keys
-const GEMINI_API_KEY = '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';
-// إذا تركت FIXED_API_KEY فارغاً أو بدون تغيير، سيطلب من الطالب إدخاله
+// === SLEIPS ASSISTANT ENDPOINT ======================================
+// رابط الخادم الوسيط (Worker) يُلصق هنا بعد نشره. لا توجد أي مفاتيح سرية في هذا الملف.
+const SLEIPS_API = 'https://sleips-assistant.elaskry2030.workers.dev';
 
-function getApiKey() { var stored = localStorage.getItem('sleips_groq_key'); return (stored && stored.startsWith('gsk_') && stored.length > 20) ? stored : GEMINI_API_KEY; }
 
+// يحصل على جلسة المساعد تلقائيًا باستخدام كود المجموعة الذي دخل به الطالب، دون أي خطوة إضافية.
+async function cwAutoAuth(){
+  var code=sessionStorage.getItem('sleips_group_code');
+  if(!code) return false;
+  try{
+    var res=await fetch(SLEIPS_API+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code})});
+    if(!res.ok) return false;
+    var data=await res.json();
+    if(!data||data.gid!==_gid) return false;
+    sessionStorage.setItem('sleips_session',data.token);
+    return true;
+  }catch(e){ return false; }
+}
+
+function cwAuth(){
+  var val=document.getElementById('cw-auth-inp').value.trim().toUpperCase();
+  var err=document.getElementById('cw-auth-err');
+  if(!val){ return; }
+  err.style.display='none';
+  fetch(SLEIPS_API+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:val})})
+    .then(function(res){
+      if(res.status===401){ err.textContent='❌ الكود غير صحيح — تأكد من الكود الذي أرسله لك المشرف'; err.style.display='block'; return null; }
+      if(!res.ok){ err.textContent='⚠️ تعذر التحقق الآن — حاول مرة أخرى لاحقًا'; err.style.display='block'; return null; }
+      return res.json();
+    })
+    .then(function(data){
+      if(!data){ return; }
+      if(data.gid!==_gid){ err.textContent='⛔ هذا الكود مخصص لمجموعة أخرى — راجع المشرف'; err.style.display='block'; return; }
+      sessionStorage.setItem('sleips_session',data.token);
+      document.getElementById('cw-auth').style.display='none';
+      document.getElementById('cw-auth-inp').value='';
+      showToast('✅ تم التحقق — يمكنك استخدام المساعد الآن');
+    })
+    .catch(function(){ err.textContent='⚠️ لا يوجد اتصال بالخادم — تأكد من الإنترنت'; err.style.display='block'; });
+}
 
 async function cwSend() {
   if(!_gid){ showToast("ادخل مجموعتك أولاً"); return; }
@@ -1301,6 +1343,15 @@ async function cwSend() {
   var text=inp.value.trim();
   if(!text||cwLoading) return;
 
+  var token=sessionStorage.getItem('sleips_session');
+  if(!token){
+    if(await cwAutoAuth()) token=sessionStorage.getItem('sleips_session');
+  }
+  if(!token){
+    document.getElementById('cw-auth').style.display='block';
+    setTimeout(function(){ document.getElementById('cw-auth-inp').focus(); },100);
+    return;
+  }
   inp.value="";
   cwHistory.push({role:"user",content:text});
   renderMsgs(null);
@@ -1313,42 +1364,40 @@ async function cwSend() {
   dot.className="cmsg agent"; dot.id="typing";
   dot.innerHTML="<div class='cmsg-av' style='background:"+g.color+"'>"+g.icon+"</div><div class='cbbl'><div class='dots-row'><div class='dot' style='background:"+g.color+"'></div><div class='dot' style='background:"+g.color+"'></div><div class='dot' style='background:"+g.color+"'></div></div></div>";
   box.appendChild(dot); box.scrollTop=box.scrollHeight;
-  // Build system prompt + history for Gemini
-  var sysKey=g.agent+"_"+g.cap;
   var modData=_mod?MODULES_DATA[_mod]:null;
-  var sysMsg=SYS[sysKey]+(modData?" الموديول: "+modData.title:"");
-  // Gemini uses "contents" array with "parts"
-  var contents=[];
-  // Add history
-  for(var mi=0;mi<cwHistory.length;mi++){
-    var m=cwHistory[mi];
-    contents.push({
-      role: m.role==="assistant"?"model":"user",
-      parts:[{text: m.content}]
-    });
-  }
-  var apiKey=getApiKey();
   try {
-    var msgs=[{role:"system",content:sysMsg}];
-    for(var mi=0;mi<cwHistory.length;mi++){
-      msgs.push({role:cwHistory[mi].role==="assistant"?"assistant":"user",content:cwHistory[mi].content});
+    var recent=cwHistory.slice(-9);
+    var msgs=[];
+    for(var mi=0;mi<recent.length;mi++){
+      msgs.push({role:recent[mi].role==='assistant'?'assistant':'user',content:recent[mi].content});
     }
-    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    var res=await fetch(SLEIPS_API+'/chat',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-      body:JSON.stringify({model:'llama3-8b-8192',messages:msgs,max_tokens:800})
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({messages:msgs,module_title:modData?modData.title:null})
     });
+    if(res.status===401){
+      sessionStorage.removeItem('sleips_session');
+      if(await cwAutoAuth()){
+        token=sessionStorage.getItem('sleips_session');
+        res=await fetch(SLEIPS_API+'/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+          body:JSON.stringify({messages:msgs,module_title:modData?modData.title:null})
+        });
+      }
+    }
     var tp=document.getElementById("typing");
     if(tp) tp.remove();
     if(!res.ok){
       var errData=await res.json().catch(function(){return{};});
       var detail=(errData.error&&errData.error.message)||('HTTP '+res.status);
-      if(res.status===401) detail='مفتاح Groq غير صحيح — تحقق منه في لوحة المشرف';
-      if(res.status===429) detail='تجاوزت الحد المجاني — انتظر دقيقة وحاول مجدداً';
+      if(res.status===401){ sessionStorage.removeItem('sleips_session'); document.getElementById('cw-auth').style.display='block'; detail='انتهت الجلسة — أعد إدخال كود مجموعتك'; }
+      if(res.status===429) detail='وصلت إلى الحد اليومي للاستخدام — حاول مرة أخرى غدًا';
       throw new Error(detail);
     }
     var data=await res.json();
-    var reply=data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+    var reply=data&&data.reply;
     if(!reply||!reply.trim()) reply='لم أتلقَّ رداً، حاول مجدداً.';
     cwHistory.push({role:"assistant",content:reply});
   } catch(err) {
@@ -1358,7 +1407,7 @@ async function cwSend() {
     if(window.location.protocol==="file:"){
       em="⚠️ المساعد يعمل فقط على الإنترنت. ارفع الملف على GitHub Pages لتفعيله.";
     } else {
-      em="❌ خطأ في الاتصال: "+err.message;
+      em="❌ "+err.message;
     }
     cwHistory.push({role:"assistant",content:em});
   }
@@ -1500,20 +1549,9 @@ window.onload = function() {
     </div>
     <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;font-size:12px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:14px;font-family:Cairo;line-height:1.8;">
       اضغط على الموديول لفتحه أو إغلاقه<br>
-      التغييرات تُحفظ تلقائياً وتؤثر على جميع الطلاب
+      ملاحظة: التغيير هنا يخص هذا المتصفح فقط؛ فتح موديول لجميع الطلبة يتم بتعديل الكود وإعادة النشر
     </div>
-    <div style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25);border-radius:12px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:8px;font-family:Cairo;text-align:right;font-weight:700;">🤖 مفتاح Groq API للمساعد الذكي</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:8px;font-family:Cairo;text-align:right;">احصل على مفتاح مجاني من console.groq.com</div>
-      <div style="display:flex;gap:8px;">
-        <input id="sup-groq-key" type="password" placeholder="gsk_..."
-          style="flex:1;padding:8px 10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;font-size:11px;color:#fff;font-family:monospace;outline:none;direction:ltr;"
-          onfocus="this.style.borderColor='#06B6D4'" onblur="this.style.borderColor='rgba(255,255,255,.15)'"
-          onkeydown="if(event.key==='Enter'){saveGroqKey();}">
-        <button onclick="saveGroqKey()" style="padding:8px 14px;background:#0E7490;border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;font-family:Cairo;white-space:nowrap;font-weight:700;">حفظ</button>
-      </div>
-      <div id="sup-groq-status" style="font-size:11px;margin-top:6px;font-family:Cairo;text-align:right;color:rgba(255,255,255,.5);"></div>
-    </div>
+    
         <button onclick="closeSup()" style="width:100%;padding:12px;background:rgba(255,255,255,.08);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:Cairo;">✓ حفظ وإغلاق</button>
   </div>
 </div>
@@ -1536,4 +1574,3 @@ window.onload = function() {
 
 </body>
 </html>
-
